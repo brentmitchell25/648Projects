@@ -27,8 +27,12 @@ int main(int argc, char **argv, char **envp)
     if(!fgets(args,MAX_LINE,stdin)) break;
     cmd = strtok(args,DELIMS);
     int i =0;
-    if(!strcmp(cmd,"exit"))
+    if(!strcmp(cmd,"exit") || !strcmp(cmd,"quit"))
       return 0;
+
+    if(strpbrk(cmd,"cd") != NULL) {
+      chdir(argv[]);
+    }
     while(cmd != NULL){
       string[i] = cmd;
       cmd = strtok(NULL,DELIMS);
