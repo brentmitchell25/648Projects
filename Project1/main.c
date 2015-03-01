@@ -5,6 +5,7 @@
  * Copyright John Wiley & Sons - 2013
  */
 #include <stdlib.h>
+#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -12,15 +13,17 @@
 
 #define MAX_LINE		80 /* 80 chars per line, per command */
 #define DELIMS                  " \t\r\n"
+#define READ_END 0
+#define WRITE_END 1
+
 int main(int argc, char **argv, char **envp) {
 	char args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
 	char* string[MAX_LINE];
 
 	pid_t child_id;
-	int should_run = 1;
 	char *cmd;
-	int i, upper, should_fork;
-	while (should_run) {
+	int i, should_fork;
+	while (1) {
 		should_fork = 1;
 		printf("quash> ");
 		fflush(stdout);
@@ -37,9 +40,15 @@ int main(int argc, char **argv, char **envp) {
 			i++;
 		}
 
-		if (strpbrk(string[0], "cd") != NULL) {
-			chdir(string[1]);
-			puts("HERE");
+		puts(string[0]);
+
+		if(!strcmp(string[0],"set")) {
+			should_fork = 0;
+		} else if (strpbrk(string[0], "cd") != NULL) {
+			if(chdir(string[1]))
+				puts("Command not recognized");
+			should_fork = 0;
+		} else if(strpbrk(string[0],"jobs") == NULL) {
 			should_fork = 0;
 		}
 
@@ -58,12 +67,6 @@ int main(int argc, char **argv, char **envp) {
 			}
 		}
 
-		/**
-		 * After reading user input, the steps are:
-		 * (1) fork a child process
-		 * (2) the child process will invoke execvp()
-		 * (3) if command included &, parent will invoke wait()
-		 */
 	}
 
 	return 0;
