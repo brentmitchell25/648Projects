@@ -22,27 +22,47 @@ int main(int argc, char **argv, char **envp) {
 
 	pid_t child_id;
 	char *cmd;
-	int i, should_fork;
+	int i, should_fork, background_process, number_pipes;
 	while (1) {
 		should_fork = 1;
+		background_process = 0;
+		number_pipes = 0;
 		printf("quash> ");
 		fflush(stdout);
 		if (!fgets(args, MAX_LINE, stdin))
 			break;
 		cmd = strtok(args, DELIMS);
-		int i = 0;
+		i = 0;
 		if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
 			return 0;
 
 		while (cmd != NULL) {
 			string[i] = cmd;
 			cmd = strtok(NULL, DELIMS);
+			if(strchr(string[i],'&'))
+				background_process = 1;
+			if(strchr(string[i],'|'))
+				number_pipes++;
 			i++;
 		}
+		string[i] = NULL;
 
-		puts(string[0]);
+		// Run as long as set has one argument
+		if(!strcmp(string[0],"set") && string[1] != NULL) {
+			i = 0;
+			char *path[2];
 
-		if(!strcmp(string[0],"set")) {
+			// Parse into (PATH|HOME=[environment]) into array and set environment
+			path[0] = strtok(string[1],"=");
+
+			if(!strpbrk(path[0],"HOME") || !strpbrk(path[0],"PATH") ) {
+				puts("Unknown Command");
+			} else {
+				path[1] = strtok(NULL,"=");
+				if(setenv(path[0],path[1],1))
+					puts("Unknown Command");
+			}
+
 			should_fork = 0;
 		} else if (strpbrk(string[0], "cd") != NULL) {
 			if(chdir(string[1]))
@@ -51,8 +71,6 @@ int main(int argc, char **argv, char **envp) {
 		} else if(strpbrk(string[0],"jobs") == NULL) {
 			should_fork = 0;
 		}
-
-		string[i] = NULL;
 
 		// Don't fork if running built in function
 		if (should_fork) {
