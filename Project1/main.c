@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
-#include "utilities.h"
+//#include "utilities.h"
 
 #define MAX_LINE		80 /* 80 chars per line, per command */
 #define DELIMS                  " \t\r\n"
@@ -21,6 +21,26 @@
 int operator(char* input) {
 	return strchr(input, '&') || strchr(input, '<') || strchr(input, '>')
 			|| strchr(input, '|');
+}
+
+char* addSpace(char* input) {
+  size_t len = strlen(input);
+  size_t i;
+  char* newInput;
+  for (i = 0 ; i < len; i++)
+    if(input[i] == '>' || input[i] == '<' || input[i] == '|'  || input[i] == '&') {
+      char* inp = &input[i];
+      newInput = strcat(newInput," ");
+      newInput = strcat(newInput,inp);
+    } else if(input[i+1] == '>' || input[i+1] == '<' || input[i+1] == '|'  || input[i+1] == '&') {
+      char* inp = &input[i+1];
+      newInput = strcat(newInput," ");
+      newInput = strcat(newInput,inp);
+    } else {
+      char* inp = &input[i];
+      newInput = strcat(newInput,inp);
+    }
+  return newInput;
 }
 
 int main(int argc, char **argv, char **envp) {
@@ -48,7 +68,7 @@ int main(int argc, char **argv, char **envp) {
 
 		if (strchr(args, '<'))
 			fromfile = 1;
-
+		puts(addSpace(args));
 		cmd = strtok(args, DELIMS);
 		i = 0;
 		if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
