@@ -23,6 +23,7 @@ int operator(char* input) {
 			|| strchr(input, '|');
 }
 
+// Adds spaces when it encounter <, >, |, or & for easier parsing.
 char* addSpace(char* input) {
 	size_t len = strlen(input);
 	size_t i;
@@ -88,27 +89,7 @@ int main(int argc, char **argv, char **envp) {
 		}
 		i = 0;
 		while (cmd != NULL) {
-			// Need to check if one of these operators are separated by whitespace
-			if (strlen(cmd) > 1
-					&& (strchr(cmd, '>') || strchr(cmd, '<') || strchr(cmd, '|'))) {
-
-				if (strchr(cmd, '>')) {
-					if (!command && !operator(cmd)) {
-						filename[tofile] = cmd;
-						tofile++;
-					}
-					command = 0;
-				} else if (strchr(cmd, '>')) {
-					string[i + 1] = "<";
-				} else {
-					string[i + 1] = "|";
-					number_pipes++;
-				}
-				cmd = strtok(cmd, "&><|");
-				string[i] = cmd;
-				i++;
-
-			} else if (operator(cmd) || !command) {
+			if (operator(cmd) || !command) {
 				if (!command && !operator(cmd)) {
 					filename[tofile] = cmd;
 					tofile++;
