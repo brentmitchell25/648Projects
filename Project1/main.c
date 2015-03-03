@@ -24,7 +24,7 @@ int operator(char* input) {
 }
 
 // Adds spaces when it encounter <, >, |, or & for easier parsing.
-char* addSpace(char* input) {
+char* add_space(char* input) {
 	size_t len = strlen(input);
 	size_t i;
 	char* newInput = malloc(MAX_LINE);
@@ -51,6 +51,36 @@ char* addSpace(char* input) {
 	return newInput;
 }
 
+int run_utilities(char* string[]) {
+	// Run as long as set has one argument
+		if (string[0] == NULL) {
+			puts("Command not recognized.");
+			return 0;
+		} else if (!strcmp(string[0], "set") && string[1] != NULL) {
+			char *path[2];
+
+			// Parse into (PATH|HOME=[environment]) into array and set environment
+			path[0] = strtok(string[1], "=");
+
+			if (!strpbrk(path[0], "HOME") || !strpbrk(path[0], "PATH")) {
+				puts("Command not recognized");
+			} else {
+				path[1] = strtok(NULL, "=");
+				if (setenv(path[0], path[1], 1))
+					puts("Command not recognized");
+			}
+
+			return 0;
+		} else if (strpbrk(string[0], "cd") != NULL) {
+			if (chdir(string[1]))
+				puts("Command not recognized");
+			return 0;
+		} else if (!strcmp(string[0], "jobs")) {
+			// TO DO
+			return 0;
+		}
+	return 1;
+}
 int main(int argc, char **argv, char **envp) {
 	char args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
 	char* string[MAX_LINE];
@@ -76,7 +106,7 @@ int main(int argc, char **argv, char **envp) {
 
 		if (strchr(args, '<'))
 			fromfile = 1;
-		cmd = addSpace(args);
+		cmd = add_space(args);
 		cmd = strtok(cmd, DELIMS);
 		i = 0;
 		if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
@@ -88,9 +118,13 @@ int main(int argc, char **argv, char **envp) {
 			i++;
 		}
 		i = 0;
+
+		// Tokenize the input string
 		while (cmd != NULL) {
+			// Command is set to 0 after operator is found because the following strings are
+			// either file source/destination or piping
 			if (operator(cmd) || !command) {
-				if (!command && !operator(cmd)) {
+				if (!command && !strchr(cmd, '>')) {
 					filename[tofile] = cmd;
 					tofile++;
 				}
@@ -105,42 +139,18 @@ int main(int argc, char **argv, char **envp) {
 		}
 
 		string[i] = NULL;
-		// Run as long as set has one argument
-		if (string[0] == NULL) {
-			puts("Command not recognized.");
-			should_fork = 0;
-		} else if (!strcmp(string[0], "set") && string[1] != NULL) {
-			i = 0;
-			char *path[2];
 
-			// Parse into (PATH|HOME=[environment]) into array and set environment
-			path[0] = strtok(string[1], "=");
-
-			if (!strpbrk(path[0], "HOME") || !strpbrk(path[0], "PATH")) {
-				puts("Command not recognized");
-			} else {
-				path[1] = strtok(NULL, "=");
-				if (setenv(path[0], path[1], 1))
-					puts("Command not recognized");
-			}
-
-			should_fork = 0;
-		} else if (strpbrk(string[0], "cd") != NULL) {
-			if (chdir(string[1]))
-				puts("Command not recognized");
-			should_fork = 0;
-		} else if (!strcmp(string[0], "jobs")) {
-			should_fork = 0;
-		}
+		should_fork = run_utilities(string);
 
 		// Don't fork if running built in function
+		// Loop if there are multiple destination files (i.e. ls > a.txt > b.txt)
 		if (should_fork) {
 			i = 0;
-
 			do {
 				pid_t pid = fork();
 				if (pid == 0) {
 					child_id = getpid();
+					// Write output to file if '>' is entered
 					if (tofile > 0) {
 						int file = open(filename[i], O_CREAT | O_RDWR,
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -159,11 +169,6 @@ int main(int argc, char **argv, char **envp) {
 
 		}
 
-		i = 0;
-		while (filename[i] != NULL) {
-			filename[i] = NULL;
-			i++;
-		}
 	}
 
 	return 0;
