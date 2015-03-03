@@ -36,6 +36,7 @@ void sigchldHandler( int signal )
         pid_t pid;
         while( ( pid = waitpid( -1, NULL, WNOHANG ) ) > 0 )
         	delete_job(&m,pid);
+
 }
 
 
@@ -117,6 +118,7 @@ int run_utilities(char* string[]) {
 	}
 	return 1;
 }
+
 int main(int argc, char **argv, char **envp) {
 	char args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
 	char* string[MAX_LINE];
@@ -135,11 +137,14 @@ int main(int argc, char **argv, char **envp) {
 
 	while (1) {
 		should_fork = 1;
+		command = 1;
+
 		background_process = 0;
 		number_pipes = 0;
 		tofile = 0;
 		fromfile = 0;
-		command = 1;
+
+
 		dir = getcwd(dir, 1024);
 		char quash[1024];
 		sprintf(quash, "quash:%s$ ", dir);
@@ -220,7 +225,7 @@ int main(int argc, char **argv, char **envp) {
 					else {
 						add_job(&m, *string, jobs, pid);
 						printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
-
+						sleep(5);
 					}
 				}
 				i++;
