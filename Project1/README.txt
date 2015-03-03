@@ -12,7 +12,7 @@
 -[X] PATH works properly. Give error messages when the executable is not found.
 -[X] Child processes inherit the environment.
 -[X] Allow background/foreground execution (using &).
--[] Printing/reporting of background processes, (including the jobs command).
+-[X] Printing/reporting of background processes, (including the jobs command).
 -[] Allow file redirection (using > and <).
 -[] Allow (1) pipe (using |).
 -[] Supports reading commands from prompt and from file.
