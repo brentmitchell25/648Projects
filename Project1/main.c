@@ -30,7 +30,7 @@ char* addSpace(char* input) {
 	char* newInput = malloc(MAX_LINE);
 	strcpy(newInput,"");
 	for (i = 0; i < len; i++) {
-		// NOTE: MUST include null string at end when concatenating strings in C
+		// NOTE: MUST include null character at end when concatenating strings in C
 		if (input[i] == '>' || input[i] == '<' || input[i] == '|'
 				|| input[i] == '&') {
 			char space[] = " \0";
