@@ -147,7 +147,7 @@ int main(int argc, char **argv, char **envp) {
 
 		dir = getcwd(dir, 1024);
 		char quash[1024];
-		sprintf(quash, "quash:%s$ ", dir);
+		sprintf(quash, "[quash:%s]$ ", dir);
 		printf(quash);
 		fflush(stdout);
 		if (!fgets(args, MAX_LINE, stdin))
@@ -171,13 +171,14 @@ int main(int argc, char **argv, char **envp) {
 			// Command is set to 0 after operator is found because the following strings are
 			// either file source/destination or piping
 			if (operator(cmd) || !command) {
-				if (!command && !strchr(cmd, '>')) {
+				if (strchr(cmd, '&')) {
+					background_process = 1;
+				}
+				else if (!command && !strchr(cmd, '>')) {
 					filename[tofile] = cmd;
 					tofile++;
 				} else if (!command && !strchr(cmd, '<')) {
 					fromfile = 1;
-				} else if (strchr(cmd, '&')) {
-					background_process = 1;
 				}
 				command = 0;
 			} else if (!strchr(cmd, '&') && command) {
@@ -225,7 +226,7 @@ int main(int argc, char **argv, char **envp) {
 					else {
 						add_job(&m, *string, jobs, pid);
 						printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
-						sleep(5);
+						sleep(50000000);
 					}
 				}
 				i++;
