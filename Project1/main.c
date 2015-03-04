@@ -12,9 +12,9 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <pthread.h>
 #include "jobs.h"
-//#include "utilities.h"
 
 #define MAX_LINE		256 /* 256 chars per line, per command */
 #define DELIMS                  " \t\r\n"
@@ -23,13 +23,16 @@
 
 char* dir;
 struct Main m;
+struct Pipes {
+	int fd[2];
+};
 int operator(char* input) {
 	return strchr(input, '&') || strchr(input, '<') || strchr(input, '>')
 			|| strchr(input, '|');
 }
 
 // SIGCHLD signal handler to reap zombie processes.
-void sigchldHandler(int signal) {
+void sig_child_handler(int signal) {
 	pid_t pid;
 	while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
 		delete_job(&m, pid);
@@ -38,10 +41,10 @@ void sigchldHandler(int signal) {
 
 // Set up the above SIGCHLD handler so it will go into action.
 // This should be called at Quash startup.
-void initZombieReaping() {
+void init_zombie() {
 	struct sigaction sa;
 
-	sa.sa_handler = sigchldHandler;
+	sa.sa_handler = sig_child_handler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 
@@ -84,7 +87,9 @@ int run_utilities(char* string[]) {
 	if (string[0] == NULL) {
 		puts("Command not recognized.");
 		return 0;
-	} else if (!strcmp(string[0], "set") && string[1] != NULL) {
+	} else if (!strcmp(string[0], "exit") || !strcmp(string[0], "quit"))
+		exit(0);
+	else if (!strcmp(string[0], "set") && string[1] != NULL) {
 		char *path[2];
 		// Parse into (PATH|HOME=[environment]) into array and set environment
 		path[0] = strtok(string[1], "=");
@@ -117,13 +122,14 @@ int run_utilities(char* string[]) {
 
 int main(int argc, char **argv, char **envp) {
 	char args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
-	char* string[MAX_LINE];
+
 	char* to_filename[MAX_LINE];
 	char* from_filename[MAX_LINE];
-	initZombieReaping();
+
+	init_zombie();
 	char *cmd;
-	int i, should_fork, background_process, redirect_output, redirect_input,
-			number_pipes, tofile, fromfile, command;
+	int i, should_fork, should_pipe, background_process, redirect_output, redirect_input,
+			pipe_number, tofile, fromfile, command;
 	int jobs = 0;
 	int status = 0;
 	TAILQ_INIT(&m.head);
@@ -132,13 +138,15 @@ int main(int argc, char **argv, char **envp) {
 
 	while (1) {
 		should_fork = 1;
+		should_pipe = 0;
 		command = 1;
 		background_process = 0;
 		redirect_output = 0;
 		redirect_input = 0;
-		number_pipes = 0;
+		pipe_number = 0;
 		tofile = 0;
 		fromfile = 0;
+		int pipes[MAX_LINE][2];
 
 		dir = getcwd(dir, 1024);
 		char quash[1024];
@@ -150,9 +158,9 @@ int main(int argc, char **argv, char **envp) {
 
 		cmd = add_space(args);
 		cmd = strtok(cmd, DELIMS);
-		i = 0;
-		if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
-			return 0;
+		int pipe_count = 0;;
+		for (i=0; args[i]; i++)
+			pipe_count += (args[i]=='|');
 
 		i = 0;
 		while (to_filename[i] != NULL) {
@@ -160,8 +168,16 @@ int main(int argc, char **argv, char **envp) {
 			from_filename[i] = NULL;
 			i++;
 		}
-		i = 0;
 
+		do {
+			i = 0;
+		char* string[MAX_LINE];
+		string[0] = NULL;
+		if(pipe_number == pipe_count) {
+			pipe(pipes[pipe_number]);
+			pipe_number++;
+			should_pipe = 0;
+		}
 		// Tokenize the input string
 		while (cmd != NULL) {
 			// Command is set to 0 after operator is found because the following strings are
@@ -169,18 +185,30 @@ int main(int argc, char **argv, char **envp) {
 			if (operator(cmd) || !command) {
 				if (strchr(cmd, '&')) {
 					background_process = 1;
+					command = 0;
 				} else if (strchr(cmd, '>')) {
 					redirect_output = 1;
+					command = 0;
 				} else if (strchr(cmd, '<')) {
 					redirect_input = 1;
+					command = 0;
+				} else if (strchr(cmd, '|')) {
+					pipe(pipes[pipe_number]);
+					pipe_number++;
+					command = 1;
+					should_pipe = 1;
+					cmd = strtok(NULL, DELIMS);
+					break;
 				} else if (!command && redirect_output) {
 					to_filename[tofile] = cmd;
 					tofile++;
+					command = 0;
 				} else if (!command && redirect_input) {
 					from_filename[fromfile] = cmd;
 					fromfile++;
+					command = 0;
 				}
-				command = 0;
+
 			} else if (!strchr(cmd, '&') && command) {
 				string[i] = cmd;
 				i++;
@@ -203,8 +231,25 @@ int main(int argc, char **argv, char **envp) {
 				if (pid == 0) {
 					if (background_process) {
 						setpgid(0, 0);
-
 					}
+					if(pipe_number > 0) {
+						if(pipe_number-1 < pipe_count) {
+							dup2(pipes[pipe_number-1][WRITE_END],STDOUT_FILENO);
+
+						} else if(pipe_number-1 == pipe_count) {
+							dup2(pipes[pipe_number-2][READ_END],STDIN_FILENO);
+
+						} else {
+							dup2(pipes[pipe_number-2][READ_END],STDIN_FILENO);
+							dup2(pipes[pipe_number-1][WRITE_END],STDOUT_FILENO);
+						}
+						int j = 0;
+					//	for(j= 0 ; j < pipe_number; j++) {
+							close(pipes[pipe_number-1][WRITE_END]);
+							close(pipes[pipe_number-1][READ_END]);
+					//	}
+					}
+					// Read input file if '<' is entered
 					if (i < fromfile && fromfile > 0) {
 						int file_in = open(from_filename[i], O_RDWR,
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -233,11 +278,12 @@ int main(int argc, char **argv, char **envp) {
 						sleep(5);
 					}
 				}
-				i++;
 			} while (i < tofile || i < fromfile);
-
 		}
 
+		// Need to deallocate memory from add_space function
+		//free(cmd);
+		} while(pipe_number <= pipe_count && should_pipe);
 	}
 
 	return 0;
