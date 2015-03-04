@@ -22,7 +22,6 @@
 #define WRITE_END 1
 
 char* dir;
-char* home_dir;
 struct Main m;
 int operator(char* input) {
 	return strchr(input, '&') || strchr(input, '<') || strchr(input, '>')
@@ -92,24 +91,31 @@ int run_utilities(char* string[]) {
 		return 0;
 	} else if (!strcmp(string[0], "set") && string[1] != NULL) {
 		char *path[2];
-
 		// Parse into (PATH|HOME=[environment]) into array and set environment
 		path[0] = strtok(string[1], "=");
 
 		if (!strpbrk(path[0], "HOME") && !strpbrk(path[0], "PATH")) {
 			puts("Path not found");
 		} else {
+		  // Sets path entered by user
+		  // If user enters no path, then clear it.
 			path[1] = strtok(NULL, "=");
-			if (setenv(path[0], path[1], 1))
+			if (path[1] != '\0' && setenv(path[0], path[1], 1))
 				puts("Path not found");
+			else if(path[1] == '\0'){
+			  setenv(path[0],"",1);
+  				puts("Path not found");
+			}
+			else
+
 		}
 
 		return 0;
-	} else if (strpbrk(string[0], "cd") != NULL) {
-		char* d = getenv("HOME");
-		puts(d);
+	} else if (strcmp(string[0], "cd") == 0) {
+	  puts("HERE");
+	  //	  puts(getcwd(1024,1024));
 		if (chdir(string[1]))
-			if(chdir(getenv("HOME")))
+			if(string[1] != '\0' || chdir(getenv("HOME")))
 			puts("Directory not found.");
 		return 0;
 	} else if (!strcmp(string[0], "jobs")) {
@@ -122,7 +128,8 @@ int run_utilities(char* string[]) {
 int main(int argc, char **argv, char **envp) {
 	char args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
 	char* string[MAX_LINE];
-	char* filename[MAX_LINE];
+	char* to_filename[MAX_LINE];
+	char* from_filename[MAX_LINE];
 	initZombieReaping();
 	pid_t child_id;
 	char *cmd;
@@ -130,7 +137,6 @@ int main(int argc, char **argv, char **envp) {
 			command;
 	int jobs = 0;
 	int status = 0;
-	home_dir = getenv("HOME");
 	TAILQ_INIT(&m.head);
 	strcpy(m.main, "Main");
 	m.pid = getpid();
@@ -138,7 +144,6 @@ int main(int argc, char **argv, char **envp) {
 	while (1) {
 		should_fork = 1;
 		command = 1;
-
 		background_process = 0;
 		number_pipes = 0;
 		tofile = 0;
@@ -160,8 +165,9 @@ int main(int argc, char **argv, char **envp) {
 			return 0;
 
 		i = 0;
-		while (filename[i] != NULL) {
-			filename[i] = NULL;
+		while (to_filename[i] != NULL) {
+			to_filename[i] = NULL;
+			from_filename[i] = NULL;
 			i++;
 		}
 		i = 0;
@@ -175,10 +181,11 @@ int main(int argc, char **argv, char **envp) {
 					background_process = 1;
 				}
 				else if (!command && !strchr(cmd, '>')) {
-					filename[tofile] = cmd;
+					to_filename[tofile] = cmd;
 					tofile++;
 				} else if (!command && !strchr(cmd, '<')) {
-					fromfile = 1;
+				  from_filename[fromfile] = cmd;
+					fromfile++;
 				}
 				command = 0;
 			} else if (!strchr(cmd, '&') && command) {
@@ -193,29 +200,36 @@ int main(int argc, char **argv, char **envp) {
 		string[i] = NULL;
 
 		should_fork = run_utilities(string);
-
 		// Don't fork if running built in function
 		// Loop if there are multiple destination files (i.e. ls > a.txt > b.txt)
 		if (should_fork) {
 			i = 0;
 			do {
 				jobs++;
+				puts(*string);
 				pid_t pid = fork();
 				if (pid == 0) {
-
+				  puts(getenv("PATH"));
 					if (background_process) {
 						setpgid(0, 0);
-						fclose(stdin);
-						fopen("/dev/null","r");
 
+
+
+					}
+					if(fromfile > 0) {
+						int file_in = open(from_filename[i], O_RDWR,
+						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+						dup2(file_in,STDIN_FILENO);
+						close(file_in);
 					}
 					// Write output to file if '>' is entered
 					if (tofile > 0) {
-						int file = open(filename[i], O_CREAT | O_RDWR,
+						int file_out = open(to_filename[i], O_CREAT | O_RDWR,
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-						dup2(file, STDOUT_FILENO);
-						close(file);
+						dup2(file_out, STDOUT_FILENO);
+						close(file_out);
 					}
+
 					execvp(string[0], string);
 					printf("Unknown command\n");
 					exit(0);
@@ -226,7 +240,7 @@ int main(int argc, char **argv, char **envp) {
 					else {
 						add_job(&m, *string, jobs, pid);
 						printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
-						sleep(50000000);
+						sleep(5);
 					}
 				}
 				i++;
