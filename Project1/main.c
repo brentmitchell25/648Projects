@@ -143,7 +143,7 @@ int main(int argc, char **argv, char **envp) {
 		background_process = 0;
 		redirect_output = 0;
 		redirect_input = 0;
-		pipe_number = 0;
+		pipe_number = -1;
 		tofile = 0;
 		fromfile = 0;
 		int pipes[MAX_LINE][2];
@@ -158,9 +158,12 @@ int main(int argc, char **argv, char **envp) {
 
 		cmd = add_space(args);
 		cmd = strtok(cmd, DELIMS);
-		int pipe_count = 0;;
-		for (i=0; args[i]; i++)
-			pipe_count += (args[i]=='|');
+		int pipe_count = -1;;
+		for (i=0; args[i]; i++) {
+		  pipe_count += (args[i]=='|');
+		}
+		if(pipe_count > -1)
+		  pipe_count++;
 
 		i = 0;
 		while (to_filename[i] != NULL) {
@@ -173,9 +176,11 @@ int main(int argc, char **argv, char **envp) {
 			i = 0;
 		char* string[MAX_LINE];
 		string[0] = NULL;
-		if(pipe_number == pipe_count) {
-			pipe(pipes[pipe_number]);
+		if(pipe_number == pipe_count-1) {
 			pipe_number++;
+
+
+
 			should_pipe = 0;
 		}
 		// Tokenize the input string
@@ -193,8 +198,11 @@ int main(int argc, char **argv, char **envp) {
 					redirect_input = 1;
 					command = 0;
 				} else if (strchr(cmd, '|')) {
-					pipe(pipes[pipe_number]);
 					pipe_number++;
+				  if(pipe(pipes[pipe_number]) < 0)
+				    perror("Failed to open pipe");
+
+
 					command = 1;
 					should_pipe = 1;
 					cmd = strtok(NULL, DELIMS);
@@ -219,12 +227,13 @@ int main(int argc, char **argv, char **envp) {
 		}
 
 		string[i] = NULL;
-
+			printf("%d",pipe_number);
 		should_fork = run_utilities(string);
 		// Don't fork if running built in function
 		// Loop if there are multiple destination files (i.e. ls > a.txt > b.txt)
 		if (should_fork) {
 			i = 0;
+
 			do {
 				jobs++;
 				pid_t pid = fork();
@@ -232,22 +241,35 @@ int main(int argc, char **argv, char **envp) {
 					if (background_process) {
 						setpgid(0, 0);
 					}
-					if(pipe_number > 0) {
-						if(pipe_number-1 < pipe_count) {
-							dup2(pipes[pipe_number-1][WRITE_END],STDOUT_FILENO);
+					if(pipe_number > -1) {
+						if(pipe_number == 0) {
+						  if(dup2(pipes[pipe_number][WRITE_END],STDOUT_FILENO) < 0) {
+						    perror("dup2");
+						    exit(EXIT_FAILURE);
+						  }
 
-						} else if(pipe_number-1 == pipe_count) {
-							dup2(pipes[pipe_number-2][READ_END],STDIN_FILENO);
+						} else if(pipe_number == pipe_count) {
+						  if(dup2(pipes[pipe_number-1][READ_END],STDIN_FILENO) < 0){
+						    perror("dup2");
+						    exit(EXIT_FAILURE);
+						}
 
 						} else {
-							dup2(pipes[pipe_number-2][READ_END],STDIN_FILENO);
-							dup2(pipes[pipe_number-1][WRITE_END],STDOUT_FILENO);
+						  exit(EXIT_FAILURE);
+							dup2(pipes[pipe_number-1][READ_END],STDIN_FILENO);
+							dup2(pipes[pipe_number][WRITE_END],STDOUT_FILENO);
 						}
 						int j = 0;
-					//	for(j= 0 ; j < pipe_number; j++) {
-							close(pipes[pipe_number-1][WRITE_END]);
-							close(pipes[pipe_number-1][READ_END]);
-					//	}
+						for(j= 0 ; j < pipe_count; j++) {
+						  if(close(pipes[j][WRITE_END]) < 0) {
+						    perror("Write close");
+						    exit(EXIT_FAILURE);
+						  }
+						  if(close(pipes[j][READ_END]) < 0) {
+						    perror("Read Close");
+						    exit(EXIT_FAILURE);
+						  }
+						}
 					}
 					// Read input file if '<' is entered
 					if (i < fromfile && fromfile > 0) {
