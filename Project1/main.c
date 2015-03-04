@@ -102,18 +102,13 @@ int run_utilities(char* string[]) {
 			path[1] = strtok(NULL, "=");
 			if (path[1] != '\0' && setenv(path[0], path[1], 1))
 				puts("Path not found");
-			else if(path[1] == '\0'){
-			  setenv(path[0],"",1);
+			else if(path[1] == '\0' && setenv(path[0],"",1)) {
   				puts("Path not found");
 			}
-			else
-
 		}
 
 		return 0;
 	} else if (strcmp(string[0], "cd") == 0) {
-	  puts("HERE");
-	  //	  puts(getcwd(1024,1024));
 		if (chdir(string[1]))
 			if(string[1] != '\0' || chdir(getenv("HOME")))
 			puts("Directory not found.");
@@ -131,7 +126,6 @@ int main(int argc, char **argv, char **envp) {
 	char* to_filename[MAX_LINE];
 	char* from_filename[MAX_LINE];
 	initZombieReaping();
-	pid_t child_id;
 	char *cmd;
 	int i, should_fork, background_process, number_pipes, tofile, fromfile,
 			command;
@@ -206,10 +200,8 @@ int main(int argc, char **argv, char **envp) {
 			i = 0;
 			do {
 				jobs++;
-				puts(*string);
 				pid_t pid = fork();
 				if (pid == 0) {
-				  puts(getenv("PATH"));
 					if (background_process) {
 						setpgid(0, 0);
 
