@@ -28,32 +28,27 @@ int operator(char* input) {
 			|| strchr(input, '|');
 }
 
-
 // SIGCHLD signal handler to reap zombie processes.
-void sigchldHandler( int signal )
-{
-        pid_t pid;
-        while( ( pid = waitpid( -1, NULL, WNOHANG ) ) > 0 )
-        	delete_job(&m,pid);
+void sigchldHandler(int signal) {
+	pid_t pid;
+	while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
+		delete_job(&m, pid);
 
 }
 
-
 // Set up the above SIGCHLD handler so it will go into action.
 // This should be called at Quash startup.
-void initZombieReaping()
-{
-        struct sigaction sa;
+void initZombieReaping() {
+	struct sigaction sa;
 
-        sa.sa_handler = sigchldHandler;
-        sigemptyset( &sa.sa_mask );
-        sa.sa_flags = SA_RESTART;
+	sa.sa_handler = sigchldHandler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
 
-        if( sigaction( SIGCHLD, &sa, NULL ) == -1 )
-        {
-                printf("Failure in sigaction() call.");
-                exit(1);
-        }
+	if (sigaction( SIGCHLD, &sa, NULL) == -1) {
+		printf("Failure in sigaction() call.");
+		exit(1);
+	}
 }
 
 // Adds spaces when it encounter <, >, |, or & for easier parsing.
@@ -97,21 +92,21 @@ int run_utilities(char* string[]) {
 		if (!strpbrk(path[0], "HOME") && !strpbrk(path[0], "PATH")) {
 			puts("Path not found");
 		} else {
-		  // Sets path entered by user
-		  // If user enters no path, then clear it.
+			// Sets path entered by user
+			// If user enters no path, then clear it.
 			path[1] = strtok(NULL, "=");
 			if (path[1] != '\0' && setenv(path[0], path[1], 1))
 				puts("Path not found");
-			else if(path[1] == '\0' && setenv(path[0],"",1)) {
-  				puts("Path not found");
+			else if (path[1] == '\0' && setenv(path[0], "", 1)) {
+				puts("Path not found");
 			}
 		}
 
 		return 0;
 	} else if (strcmp(string[0], "cd") == 0) {
 		if (chdir(string[1]))
-			if(string[1] != '\0' || chdir(getenv("HOME")))
-			puts("Directory not found.");
+			if (string[1] != '\0' || chdir(getenv("HOME")))
+				puts("Directory not found.");
 		return 0;
 	} else if (!strcmp(string[0], "jobs")) {
 		print_jobs(&m);
@@ -127,8 +122,8 @@ int main(int argc, char **argv, char **envp) {
 	char* from_filename[MAX_LINE];
 	initZombieReaping();
 	char *cmd;
-	int i, should_fork, background_process, number_pipes, tofile, fromfile,
-			command;
+	int i, should_fork, background_process, redirect_output, redirect_input,
+			number_pipes, tofile, fromfile, command;
 	int jobs = 0;
 	int status = 0;
 	TAILQ_INIT(&m.head);
@@ -139,15 +134,16 @@ int main(int argc, char **argv, char **envp) {
 		should_fork = 1;
 		command = 1;
 		background_process = 0;
+		redirect_output = 0;
+		redirect_input = 0;
 		number_pipes = 0;
 		tofile = 0;
 		fromfile = 0;
 
-
 		dir = getcwd(dir, 1024);
 		char quash[1024];
 		sprintf(quash, "[quash:%s]$ ", dir);
-		printf(quash);
+		printf("%s", quash);
 		fflush(stdout);
 		if (!fgets(args, MAX_LINE, stdin))
 			break;
@@ -173,12 +169,15 @@ int main(int argc, char **argv, char **envp) {
 			if (operator(cmd) || !command) {
 				if (strchr(cmd, '&')) {
 					background_process = 1;
-				}
-				else if (!command && !strchr(cmd, '>')) {
+				} else if (strchr(cmd, '>')) {
+					redirect_output = 1;
+				} else if (strchr(cmd, '<')) {
+					redirect_input = 1;
+				} else if (!command && redirect_output) {
 					to_filename[tofile] = cmd;
 					tofile++;
-				} else if (!command && !strchr(cmd, '<')) {
-				  from_filename[fromfile] = cmd;
+				} else if (!command && redirect_input) {
+					from_filename[fromfile] = cmd;
 					fromfile++;
 				}
 				command = 0;
@@ -205,17 +204,16 @@ int main(int argc, char **argv, char **envp) {
 					if (background_process) {
 						setpgid(0, 0);
 
-
-
 					}
-					if(fromfile > 0) {
+					if (i < fromfile && fromfile > 0) {
 						int file_in = open(from_filename[i], O_RDWR,
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-						dup2(file_in,STDIN_FILENO);
+						printf("%d", file_in);
+						dup2(file_in, STDIN_FILENO);
 						close(file_in);
 					}
 					// Write output to file if '>' is entered
-					if (tofile > 0) {
+					if (i < tofile && tofile > 0) {
 						int file_out = open(to_filename[i], O_CREAT | O_RDWR,
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 						dup2(file_out, STDOUT_FILENO);
@@ -227,7 +225,7 @@ int main(int argc, char **argv, char **envp) {
 					exit(0);
 				} else {
 					if (!background_process)
-						waitpid(pid,&status,0);
+						waitpid(pid, &status, 0);
 
 					else {
 						add_job(&m, *string, jobs, pid);
@@ -236,7 +234,7 @@ int main(int argc, char **argv, char **envp) {
 					}
 				}
 				i++;
-			} while (i < tofile);
+			} while (i < tofile || i < fromfile);
 
 		}
 

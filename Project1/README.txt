@@ -13,7 +13,7 @@
 -[X] Child processes inherit the environment.
 -[X] Allow background/foreground execution (using &).
 -[X] Printing/reporting of background processes, (including the jobs command).
--[] Allow file redirection (using > and <).
+-[X] Allow file redirection (using > and <).
 -[] Allow (1) pipe (using |).
 -[] Supports reading commands from prompt and from file.
 -[] Report.
