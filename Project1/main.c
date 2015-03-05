@@ -100,6 +100,7 @@ int run_utilities(char* string[]) {
 			// Sets path entered by user
 			// If user enters no path, then clear it.
 			path[1] = strtok(NULL, "=");
+
 			if (path[1] != '\0' && setenv(path[0], path[1], 1))
 				puts("Path not found");
 			else if (path[1] == '\0' && setenv(path[0], "", 1)) {
@@ -109,9 +110,12 @@ int run_utilities(char* string[]) {
 
 		return 0;
 	} else if (strcmp(string[0], "cd") == 0) {
-		if (chdir(string[1]))
-			if (string[1] != '\0' || chdir(getenv("HOME")))
+		if (chdir(string[1])){
+			if (string[1] == '\0'  && !chdir(getenv("HOME")));
+			else if(!strcmp(string[1],"~") && !chdir(getenv("HOME")));
+			else
 				puts("Directory not found.");
+		}
 		return 0;
 	} else if (!strcmp(string[0], "jobs")) {
 		print_jobs(&m);
@@ -306,8 +310,8 @@ int main(int argc, char **argv, char **envp) {
 
 						else {
 							add_job(&m, *string, jobs, pid);
-							printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
-							sleep(5);
+							printf("[%d]\t%d\t%s\n", jobs, pid, *string);
+							sleep(1);
 						}
 						if (should_pipe) {
 							close(pipes[pipe_number][WRITE_END]);
