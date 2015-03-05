@@ -133,7 +133,7 @@ int main(int argc, char **argv, char **envp) {
 	int jobs = 0;
 	int status = 0;
 	TAILQ_INIT(&m.head);
-	strcpy(m.main, "Main");
+	strcpy(m.main, "Main"); 
 	m.pid = getpid();
 
 	while (1) {
