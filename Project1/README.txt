@@ -14,7 +14,7 @@
 -[X] Allow background/foreground execution (using &).
 -[X] Printing/reporting of background processes, (including the jobs command).
 -[X] Allow file redirection (using > and <).
--[] Allow (1) pipe (using |).
+-[X] Allow (1) pipe (using |).
 -[x] Supports reading commands from prompt and from file.
 -[] Report.
 -BONUS:
