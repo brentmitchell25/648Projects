@@ -16,7 +16,7 @@
 -[X] Allow file redirection (using > and <).
 -[X] Allow (1) pipe (using |).
 -[x] Supports reading commands from prompt and from file.
--[] Report.
+-[x] Report.
 -BONUS:
 -[X] Support multiple pipes in one command.
 -[X] kill command delivers signals to background processes.
