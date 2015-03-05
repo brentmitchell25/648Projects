@@ -18,5 +18,5 @@
 -[x] Supports reading commands from prompt and from file.
 -[] Report.
 -BONUS:
--[] Support multiple pipes in one command.
--[] kill command delivers signals to background processes.
+-[X] Support multiple pipes in one command.
+-[X] kill command delivers signals to background processes.

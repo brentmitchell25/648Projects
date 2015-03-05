@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <errno.h>
 #include "jobs.h"
 
 #define MAX_LINE		256 /* 256 chars per line, per command */
@@ -120,7 +121,17 @@ int run_utilities(char* string[]) {
 	} else if (!strcmp(string[0], "jobs")) {
 		print_jobs(&m);
 		return 0;
+	} else if (!strcmp(string[0], "kill")) {
+		printf("%s",string[1]);
+		if(string[1] == NULL)
+			puts("Need to specify a PID to kill.");
+		else {
+			if(!kill(atoi(string[1]),SIGINT))
+				printf("Error trying to kill PID: %d",errno);
+		}
+		return 0;
 	}
+
 	return 1;
 }
 
