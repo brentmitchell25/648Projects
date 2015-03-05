@@ -128,8 +128,8 @@ int main(int argc, char **argv, char **envp) {
 
 	init_zombie();
 	char *cmd;
-	int i, should_fork, should_pipe, background_process, redirect_output, redirect_input,
-			pipe_number, tofile, fromfile, command;
+	int i, should_fork, should_pipe, background_process, redirect_output,
+			redirect_input, pipe_number, tofile, fromfile, command;
 	int jobs = 0;
 	int status = 0;
 	TAILQ_INIT(&m.head);
@@ -146,6 +146,7 @@ int main(int argc, char **argv, char **envp) {
 		pipe_number = -1;
 		tofile = 0;
 		fromfile = 0;
+		int pipe_count = -1;
 		int pipes[MAX_LINE][2];
 
 		dir = getcwd(dir, 1024);
@@ -158,154 +159,167 @@ int main(int argc, char **argv, char **envp) {
 
 		cmd = add_space(args);
 		cmd = strtok(cmd, DELIMS);
-		int pipe_count = -1;;
-		for (i=0; args[i]; i++) {
-		  pipe_count += (args[i]=='|');
-		}
-		if(pipe_count > -1)
-		  pipe_count++;
 
-		i = 0;
-		while (to_filename[i] != NULL) {
-			to_filename[i] = NULL;
-			from_filename[i] = NULL;
-			i++;
+
+		for (i = 0; args[i]; i++) {
+			pipe_count += (args[i] == '|');
 		}
+
+		if (pipe_count > -1)
+			pipe_count++;
+
+		to_filename[0] = NULL;
+		from_filename[0] = NULL;
+
+			i = 0;
 
 		do {
 			i = 0;
-		char* string[MAX_LINE];
-		string[0] = NULL;
-		if(pipe_number == pipe_count-1) {
-			pipe_number++;
+			char* string[MAX_LINE];
+			string[0] = NULL;
+			if (pipe_count > -1 && pipe_number >= pipe_count - 1) {
+				pipe_number++;
 
+				should_pipe = 0;
+			}
+			// Tokenize the input string
+			while (cmd != NULL) {
+				// Command is set to 0 after operator is found because the following strings are
+				// either file source/destination or piping
+				if (operator(cmd) || !command) {
+					if (strchr(cmd, '&')) {
+						background_process = 1;
+						command = 0;
+					} else if (strchr(cmd, '>')) {
+						redirect_output = 1;
+						command = 0;
+					} else if (strchr(cmd, '<')) {
+						redirect_input = 1;
+						command = 0;
+					} else if (strchr(cmd, '|')) {
+						pipe_number++;
+						if (pipe(pipes[pipe_number]) < 0)
+							perror("Failed to open pipe");
 
-
-			should_pipe = 0;
-		}
-		// Tokenize the input string
-		while (cmd != NULL) {
-			// Command is set to 0 after operator is found because the following strings are
-			// either file source/destination or piping
-			if (operator(cmd) || !command) {
-				if (strchr(cmd, '&')) {
-					background_process = 1;
-					command = 0;
-				} else if (strchr(cmd, '>')) {
-					redirect_output = 1;
-					command = 0;
-				} else if (strchr(cmd, '<')) {
-					redirect_input = 1;
-					command = 0;
-				} else if (strchr(cmd, '|')) {
-					pipe_number++;
-				  if(pipe(pipes[pipe_number]) < 0)
-				    perror("Failed to open pipe");
-
-
-					command = 1;
-					should_pipe = 1;
-					cmd = strtok(NULL, DELIMS);
-					break;
-				} else if (!command && redirect_output) {
-					to_filename[tofile] = cmd;
-					tofile++;
-					command = 0;
-				} else if (!command && redirect_input) {
-					from_filename[fromfile] = cmd;
-					fromfile++;
-					command = 0;
-				}
-
-			} else if (!strchr(cmd, '&') && command) {
-				string[i] = cmd;
-				i++;
-			} //else if()
-
-			cmd = strtok(NULL, DELIMS);
-
-		}
-
-		string[i] = NULL;
-			printf("%d",pipe_number);
-		should_fork = run_utilities(string);
-		// Don't fork if running built in function
-		// Loop if there are multiple destination files (i.e. ls > a.txt > b.txt)
-		if (should_fork) {
-			i = 0;
-
-			do {
-				jobs++;
-				pid_t pid = fork();
-				if (pid == 0) {
-					if (background_process) {
-						setpgid(0, 0);
+						command = 1;
+						should_pipe = 1;
+						cmd = strtok(NULL, DELIMS);
+						break;
+					} else if (!command && redirect_output) {
+						to_filename[tofile] = cmd;
+						tofile++;
+						command = 0;
+					} else if (!command && redirect_input) {
+						from_filename[fromfile] = cmd;
+						fromfile++;
+						command = 0;
 					}
-					if(pipe_number > -1) {
-						if(pipe_number == 0) {
-						  if(dup2(pipes[pipe_number][WRITE_END],STDOUT_FILENO) < 0) {
-						    perror("dup2");
-						    exit(EXIT_FAILURE);
-						  }
 
-						} else if(pipe_number == pipe_count) {
-						  if(dup2(pipes[pipe_number-1][READ_END],STDIN_FILENO) < 0){
-						    perror("dup2");
-						    exit(EXIT_FAILURE);
+				} else if (!strchr(cmd, '&') && command) {
+					string[i] = cmd;
+					i++;
+				} //else if()
+
+				cmd = strtok(NULL, DELIMS);
+
+			}
+
+			string[i] = '\0';
+			to_filename[tofile+1] = NULL;
+			from_filename[fromfile+1] = NULL;
+			should_fork = run_utilities(string);
+			// Don't fork if running built in function
+			// Loop if there are multiple destination files (i.e. ls > a.txt > b.txt)
+			if (should_fork) {
+				i = 0;
+				do {
+					jobs++;
+					pid_t pid = fork();
+					if (pid == 0) {
+						if (background_process) {
+							setpgid(0, 0);
+						}
+						if (pipe_number > -1) {
+							if (pipe_number == 0) {
+								if (dup2(pipes[pipe_number][WRITE_END],
+								STDOUT_FILENO) < 0) {
+									perror("dup2");
+									exit(EXIT_FAILURE);
+								}
+								//close(pipes[pipe_number][WRITE_END]);
+								//close(pipes[pipe_number][READ_END]);
+
+							} else if (pipe_number == pipe_count) {
+								if (dup2(pipes[pipe_number - 1][READ_END],
+								STDIN_FILENO) < 0) {
+									perror("dup2");
+									exit(EXIT_FAILURE);
+								}
+								//close(pipes[pipe_number-1][READ_END]);
+								//close(pipes[pipe_number-1][WRITE_END]);
+							} else {
+								dup2(pipes[pipe_number - 1][READ_END],
+								STDIN_FILENO);
+								dup2(pipes[pipe_number][WRITE_END],
+								STDOUT_FILENO);
+							}
+							int j = 0;
+
+							 for(j= 0 ; j < pipe_count; j++) {
+
+							 if(close(pipes[j][READ_END]) < 0) {
+							 perror("Read Close");
+							 exit(EXIT_FAILURE);
+							 }
+							 }
+
+						}
+						// Read input file if '<' is entered
+						if (i < fromfile && fromfile > 0) {
+							int file_in = open(from_filename[i], O_RDWR,
+							S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+							printf("%d", file_in);
+							dup2(file_in, STDIN_FILENO);
+							close(file_in);
+						}
+						// Write output to file if '>' is entered
+						if (i < tofile && tofile > 0) {
+							int file_out = open(to_filename[i],
+							O_CREAT | O_RDWR,
+							S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+							dup2(file_out, STDOUT_FILENO);
+							close(file_out);
 						}
 
-						} else {
-						  exit(EXIT_FAILURE);
-							dup2(pipes[pipe_number-1][READ_END],STDIN_FILENO);
-							dup2(pipes[pipe_number][WRITE_END],STDOUT_FILENO);
+						if (execvp(string[0], string) < 0) {
+							perror("Execute:");
+
 						}
+						printf("Unknown command\n");
+						exit(0);
+					} else {
 						int j = 0;
-						for(j= 0 ; j < pipe_count; j++) {
-						  if(close(pipes[j][WRITE_END]) < 0) {
-						    perror("Write close");
-						    exit(EXIT_FAILURE);
-						  }
-						  if(close(pipes[j][READ_END]) < 0) {
-						    perror("Read Close");
-						    exit(EXIT_FAILURE);
-						  }
+
+						if (!background_process) {
+							waitpid(pid, &status, 0);
+						}
+
+						else {
+							add_job(&m, *string, jobs, pid);
+							printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
+							sleep(5);
+						}
+						if (should_pipe) {
+							close(pipes[pipe_number][WRITE_END]);
 						}
 					}
-					// Read input file if '<' is entered
-					if (i < fromfile && fromfile > 0) {
-						int file_in = open(from_filename[i], O_RDWR,
-						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-						printf("%d", file_in);
-						dup2(file_in, STDIN_FILENO);
-						close(file_in);
-					}
-					// Write output to file if '>' is entered
-					if (i < tofile && tofile > 0) {
-						int file_out = open(to_filename[i], O_CREAT | O_RDWR,
-						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-						dup2(file_out, STDOUT_FILENO);
-						close(file_out);
-					}
+					i++;
+				} while (i < tofile || i < fromfile);
+			}
 
-					execvp(string[0], string);
-					printf("Unknown command\n");
-					exit(0);
-				} else {
-					if (!background_process)
-						waitpid(pid, &status, 0);
-
-					else {
-						add_job(&m, *string, jobs, pid);
-						printf("[%d]\t%d\t%s\n", jobs, getpid(), *string);
-						sleep(5);
-					}
-				}
-			} while (i < tofile || i < fromfile);
-		}
-
-		// Need to deallocate memory from add_space function
-		//free(cmd);
-		} while(pipe_number <= pipe_count && should_pipe);
+			// Need to deallocate memory from add_space function
+			//free(cmd);
+		} while (pipe_number < pipe_count && should_pipe);
 	}
 
 	return 0;
