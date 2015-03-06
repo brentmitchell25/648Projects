@@ -126,7 +126,7 @@ int run_utilities(char* string[]) {
 		if(string[1] == NULL)
 			puts("Need to specify a PID to kill.");
 		else {
-			if(!kill(atoi(string[1]),SIGINT))
+			if(kill(atoi(string[1]),SIGKILL))
 				printf("Error trying to kill PID: %d",errno);
 		}
 		return 0;
