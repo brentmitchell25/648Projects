@@ -4,7 +4,7 @@
 /*
  * This file contains the system call numbers.
  */
-
+#define __NR_system_call_namelast_system_call_num + 1
 #define __NR_restart_syscall      0
 #define __NR_exit		  1
 #define __NR_fork		  2
