@@ -31,7 +31,11 @@ static void update_curr_other_rr(struct rq *rq)
  */
 static void enqueue_task_other_rr(struct rq *rq, struct task_struct *p, int wakeup, bool b)
 {
-	// not yet implemented
+	p->task_time_slice = other_rr_time_slice; //set time slice equal to default quantum
+	list_add_tail(&p->other_rr_run_list, &rq->other_rr.queue); //add task to run queue
+	rq->other_rr.nr_running++; //increment number of running tasks
+	
+	printk("enqueue_task_other_rr: %1d, n = %1d\n", (unsigned long int)p, rq->other_rr.nr_running);
 }
 
 static void dequeue_task_other_rr(struct rq *rq, struct task_struct *p, int sleep)
@@ -39,7 +43,11 @@ static void dequeue_task_other_rr(struct rq *rq, struct task_struct *p, int slee
 	// first update the task's runtime statistics
 	update_curr_other_rr(rq);
 
-	// not yet implemented
+	list_del(&p->other_rr_run_list); //remove task from run queue
+	rq->other_rr.nr_running--; //decrement number of running tasks
+	
+	printk("dequeue_task_other_rr: %1d, n = %1d\n", (unsigned long int)p, rq->other_rr.nr_running);
+
 }
 
 /*
@@ -57,7 +65,9 @@ static void requeue_task_other_rr(struct rq *rq, struct task_struct *p)
 static void
 yield_task_other_rr(struct rq *rq)
 {
-	// not yet implemented
+	requeue_task_other_rr(rq, rq->curr);//move task to end of queue
+
+	printk("yield_task_other_rr: %1d\n", (unsigned long int)rq->curr);
 }
 
 /*
@@ -77,15 +87,19 @@ static struct task_struct *pick_next_task_other_rr(struct rq *rq)
 	struct list_head *queue;
 	struct other_rr_rq *other_rr_rq;
 
-	// not yet implemented
+	next = NULL;//initialize next
+	if(!list_empty(&rq->other_rr.queue)){//set next if there is a next
+		next = list_entry(rq->other_rr.queue.next, struct task_struct, other_rr_run_list); //set next 
 
 	/* after selecting a task, we need to set a timer to maintain correct
 	 * runtime statistics. You can uncomment this line after you have
 	 * written the code to select the appropriate task.
 	 */
-	//next->se.exec_start = rq->clock;
+	next->se.exec_start = rq->clock;
+	}
 	
 	/* you need to return the selected task here */
+	printk("pick_next_task_other_rr: %1d\n", (unsigned long int) next);
 	return NULL;
 }
 
@@ -179,7 +193,19 @@ static void task_tick_other_rr(struct rq *rq, struct task_struct *p,int queued)
 	// first update the task's runtime statistics
 	update_curr_other_rr(rq);
 
-	// not yet implemented
+	if(other_rr_time_slice == 0){//means FCFS, just return
+		printk("task_tick_other_rr: FCFS - %1d\n", (unsigned long int)p);
+		return;
+	}
+	else{//not FCFS
+		printk("task_tick_other_rr: RR - %1d dec, quantum = %1d\n", (unsigned long int)p, p->task_time_slice);
+		p->task_time_slice--;//decrement quantum
+		if(p->task_time_slice == 0){//reset and move to back of queue
+			p->task_time_slice = other_rr_time_slice; //reset to default quantum
+			set_tsk_need_resched(p); //set reschedule flag
+			yield_task_other_rr(rq); //move task to back of queue
+		}
+	}
 }
 
 /*
