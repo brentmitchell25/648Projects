@@ -206,7 +206,7 @@ static void task_tick_other_rr(struct rq *rq, struct task_struct *p,int queued)
 		        requeue_task_other_rr(rq,p);
 			p->task_time_slice = other_rr_time_slice; //reset to default quantum
 			set_tsk_need_resched(p); //set reschedule flag
-			requeue_task_other_rr(rq,p) //move task to back of queue
+			requeue_task_other_rr(rq,p); //move task to back of queue
 			
 		} else {
 		        p->task_time_slice--;//decrement quantum
