@@ -202,11 +202,12 @@ static void task_tick_other_rr(struct rq *rq, struct task_struct *p,int queued)
 	}
 	else{//not FCFS
 		printk("task_tick_other_rr: RR - %1d dec, quantum = %1d\n", (unsigned long int)p, p->task_time_slice);
-
 		if(p->task_time_slice == 0){//reset and move to back of queue
+		        requeue_task_other_rr(rq,p);
 			p->task_time_slice = other_rr_time_slice; //reset to default quantum
 			set_tsk_need_resched(p); //set reschedule flag
-			yield_task_other_rr(rq); //move task to back of queue
+			requeue_task_other_rr(rq,p) //move task to back of queue
+			
 		} else {
 		        p->task_time_slice--;//decrement quantum
 		}
