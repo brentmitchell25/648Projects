@@ -1,0 +1,10 @@
+Names: Tyler Yoder, Brent Mitchell
+Date: 4/15/15
+Assignment: Project 2
+
+[Tasks]
+[x]modified sched setscheduler to select round robin scheduler (10)
+[x]system call to set round robin quantum (20)
+[x]round robin scheduler implementation (40)
+[x]FCFS semantics with quantum=0 (10)
+[]Report (20)
