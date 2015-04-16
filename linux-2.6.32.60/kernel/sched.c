@@ -7220,6 +7220,14 @@ SYSCALL_DEFINE0(sched_other_rr_getquantum)
 	return other_rr_time_slice;
 }
 
+SYSCALL_DEFINE1(sched_other_rr_setquantum, unsigned int, quantum)
+{
+  
+         other_rr_time_slice = quantum;
+         printk("Round Robin Quantum Has Changed!\n");
+         return;
+}
+
 static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
 void sched_show_task(struct task_struct *p)
