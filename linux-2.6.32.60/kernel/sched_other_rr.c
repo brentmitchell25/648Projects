@@ -100,7 +100,7 @@ static struct task_struct *pick_next_task_other_rr(struct rq *rq)
 	
 	/* you need to return the selected task here */
 	printk("pick_next_task_other_rr: %1d\n", (unsigned long int) next);
-	return NULL;
+	return next;
 }
 
 static void put_prev_task_other_rr(struct rq *rq, struct task_struct *p)
@@ -199,11 +199,13 @@ static void task_tick_other_rr(struct rq *rq, struct task_struct *p,int queued)
 	}
 	else{//not FCFS
 		printk("task_tick_other_rr: RR - %1d dec, quantum = %1d\n", (unsigned long int)p, p->task_time_slice);
-		p->task_time_slice--;//decrement quantum
+
 		if(p->task_time_slice == 0){//reset and move to back of queue
 			p->task_time_slice = other_rr_time_slice; //reset to default quantum
 			set_tsk_need_resched(p); //set reschedule flag
 			yield_task_other_rr(rq); //move task to back of queue
+		} else {
+		        p->task_time_slice--;//decrement quantum
 		}
 	}
 }
