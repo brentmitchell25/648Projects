@@ -31,6 +31,7 @@ static void update_curr_other_rr(struct rq *rq)
  */
 static void enqueue_task_other_rr(struct rq *rq, struct task_struct *p, int wakeup, bool b)
 {
+        update_curr_other_rr(rq);
 	p->task_time_slice = other_rr_time_slice; //set time slice equal to default quantum
 	list_add_tail(&p->other_rr_run_list, &rq->other_rr.queue); //add task to run queue
 	rq->other_rr.nr_running++; //increment number of running tasks
@@ -89,8 +90,10 @@ static struct task_struct *pick_next_task_other_rr(struct rq *rq)
 
 	next = NULL;//initialize next
 	if(!list_empty(&rq->other_rr.queue)){//set next if there is a next
-		next = list_entry(rq->other_rr.queue.next, struct task_struct, other_rr_run_list); //set next 
-
+		other_rr_rq = &rq->other_rr;
+		queue = &other_rr_rq->queue;
+		next = list_first_entry(queue,struct task_struct, other_rr_run_list);
+		next->se.exec_start = rq->clock;
 	/* after selecting a task, we need to set a timer to maintain correct
 	 * runtime statistics. You can uncomment this line after you have
 	 * written the code to select the appropriate task.
