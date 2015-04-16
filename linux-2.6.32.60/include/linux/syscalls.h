@@ -342,7 +342,6 @@ asmlinkage long sys_getpgid(pid_t pid);
 asmlinkage long sys_getpgrp(void);
 asmlinkage long sys_getsid(pid_t pid);
 asmlinkage long sys_getgroups(int gidsetsize, gid_t __user *grouplist);
-asmlinkage long sys_systemc_call_name(unsigned int);
 asmlinkage long sys_setregid(gid_t rgid, gid_t egid);
 asmlinkage long sys_setgid(gid_t gid);
 asmlinkage long sys_setreuid(uid_t ruid, uid_t euid);
@@ -887,4 +886,5 @@ asmlinkage long sys_mmap_pgoff(unsigned long addr, unsigned long len,
 			unsigned long fd, unsigned long pgoff);
 
 asmlinkage long sys_sched_other_rr_getquantum(void);
+asmlinkage long sys_sched_other_rr_setquantum(void);
 #endif
