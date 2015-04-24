@@ -102,7 +102,6 @@ static struct task_struct *pick_next_task_other_rr(struct rq *rq)
 	}
 	
 	/* you need to return the selected task here */
-	printk("pick_next_task_other_rr: %1d\n", (unsigned long int) next);
 	return next;
 }
 
@@ -206,7 +205,7 @@ static void task_tick_other_rr(struct rq *rq, struct task_struct *p,int queued)
 		        requeue_task_other_rr(rq,p);
 			p->task_time_slice = other_rr_time_slice; //reset to default quantum
 			set_tsk_need_resched(p); //set reschedule flag
-			requeue_task_other_rr(rq,p); //move task to back of queue
+			yield_task_other_rr(rq); //move task to back of queue
 			
 		} else {
 		        p->task_time_slice--;//decrement quantum

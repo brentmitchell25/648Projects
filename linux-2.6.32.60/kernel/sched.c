@@ -7225,7 +7225,7 @@ SYSCALL_DEFINE1(sched_other_rr_setquantum, unsigned int, quantum)
   
          other_rr_time_slice = quantum;
          printk("Round Robin Quantum Has Changed!\n");
-         return;
+         return other_rr_time_slice;
 }
 
 static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
